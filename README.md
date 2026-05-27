@@ -1,6 +1,8 @@
+## Estructura del proyecto
+
 ```text
-donald-nql/
-  backend/
+ProyectoBD_Final/
+  Backend/
     app/
       main.py
       config.py
@@ -11,21 +13,75 @@ donald-nql/
       schemas/
       utils/
     requirements.txt
-    .env
-    README.md
-```            
+    .env.example
 
+  Frontend/
+    src/
+      App.jsx
+      App.css
+      index.css
+      main.jsx
+    package.json
+    vite.config.js
 
-## Ejecutar backend
+  README.md
+  .gitignore
+```
+
+---
+
+## Ejecutar Backend
+
+Abrir una terminal en la carpeta raíz del proyecto y ejecutar:
 
 ```bash
-cd backend
+cd Backend
 python -m venv .venv
-.venv\Scripts\activate
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 copy .env.example .env
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
+
+El backend quedará disponible en:
+
+```text
+http://127.0.0.1:8000
+```
+
+Endpoints disponibles:
+
+```text
+GET  /health
+POST /api/nql/query
+```
+
+Swagger:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+---
+
+## Ejecutar Frontend
+
+Abrir otra terminal en la carpeta raíz del proyecto y ejecutar:
+
+```bash
+cd Frontend
+npm install
+npm run dev
+```
+
+Abrir en el navegador:
+
+```text
+http://localhost:5173
+```
+
+> Nota: el backend debe estar ejecutándose en `http://127.0.0.1:8000` para que el frontend pueda consultar la API.
 
 Endpoints disponibles:
 
