@@ -4,7 +4,7 @@ from app.services.schema_context import SCHEMA_CONTEXT
 def build_sql_prompt(question: str) -> str:
     """
     Construye el prompt que se enviará a Ollama.
-    Incluye reglas de seguridad y contexto de la base DonaldV2.
+    Incluye reglas de seguridad, ejemplos obligatorios y contexto de la base DonaldV2.
     """
 
     return f"""
@@ -32,6 +32,13 @@ REGLAS OBLIGATORIAS:
 9. No compares CodigoTipoDocumentoFiscal con texto como 'DF', porque CodigoTipoDocumentoFiscal es numérico.
 10. Si la pregunta solicita eliminar, actualizar, insertar, crear o modificar datos, devuelve exactamente:
 SELECT 'Consulta no permitida. Solo se permiten consultas de lectura.' AS Mensaje
+11. Para consultas por sucursal, la tabla Sucursal usa las columnas CodigoSucursal y NombreSucursal.
+12. No existe Sucursal.Nombre.
+13. No existe DocumentoFiscal.CodigoSucursal.
+14. Para ventas por sucursal, relaciona DocumentoFiscal con DetalleManoDeObra, OrdeDeTrabajo, Diagnostico, Cita y Sucursal.
+15. Si el usuario pregunta por ventas en la Sucursal Jalapa, usa S.NombreSucursal LIKE '%Sucursal Jalapa%'.
+16. Si el usuario pregunta por último trimestre, usa DATEADD y DATEDIFF con QUARTER en SQL Server.
+17. Si la pregunta coincide con alguno de los ejemplos obligatorios, usa la misma estructura SQL del ejemplo.
 
 EJEMPLOS OBLIGATORIOS:
 
@@ -64,6 +71,101 @@ Pregunta:
 
 Respuesta:
 SELECT SUM(ValorTotal) AS TotalVentas FROM DocumentoFiscal
+
+Pregunta:
+Cuál es el total de ventas
+
+Respuesta:
+SELECT SUM(ValorTotal) AS TotalVentas FROM DocumentoFiscal
+
+Pregunta:
+Muestra el teléfono del cliente con NIT CF-57
+
+Respuesta:
+SELECT TOP 1 *
+FROM SocioNegocioTelefono
+WHERE CodigoSocio = (
+    SELECT CodigoSocio
+    FROM SocioNegocio
+    WHERE NIT = 'CF-57'
+)
+AND CodigoTipoTelefono = 1
+
+Pregunta:
+Dime el historial de servicios del vehículo con placa P097TWG
+
+Respuesta:
+SELECT TOP 10
+    A.Placa,
+    C.NumeroCita,
+    C.FechaHora,
+    D.NumeroDiagnostico,
+    OT.NumeroOrden,
+    OT.Fecha,
+    OT.Estado
+FROM Automovil A
+INNER JOIN Cita C
+    ON C.CodigoAutomovil = A.CodigoAutomovil
+INNER JOIN Diagnostico D
+    ON D.NumeroCita = C.NumeroCita
+INNER JOIN OrdeDeTrabajo OT
+    ON OT.NumeroDiagnostico = D.NumeroDiagnostico
+WHERE A.Placa = 'P097TWG'
+ORDER BY C.FechaHora DESC
+
+Pregunta:
+Cuál fue el total de ventas en el último trimestre
+
+Respuesta:
+SELECT 
+    SUM(ValorTotal) AS TotalVentasUltimoTrimestre
+FROM DocumentoFiscal
+WHERE FechaEmision >= DATEADD(QUARTER, DATEDIFF(QUARTER, 0, GETDATE()) - 1, 0)
+  AND FechaEmision < DATEADD(QUARTER, DATEDIFF(QUARTER, 0, GETDATE()), 0)
+
+Pregunta:
+Cuál fue el total de ventas en el último trimestre en la Sucursal Jalapa
+
+Respuesta:
+SELECT 
+    SUM(DF.ValorTotal) AS TotalVentasUltimoTrimestreJalapa
+FROM DocumentoFiscal DF
+WHERE DF.FechaEmision >= DATEADD(QUARTER, DATEDIFF(QUARTER, 0, GETDATE()) - 1, 0)
+  AND DF.FechaEmision < DATEADD(QUARTER, DATEDIFF(QUARTER, 0, GETDATE()), 0)
+  AND EXISTS (
+      SELECT 1
+      FROM DetalleManoDeObra DMO
+      INNER JOIN OrdeDeTrabajo OT 
+          ON OT.NumeroOrden = DMO.NumeroOrden
+      INNER JOIN Diagnostico D 
+          ON D.NumeroDiagnostico = OT.NumeroOrden
+      INNER JOIN Cita C 
+          ON C.NumeroCita = D.NumeroCita
+      INNER JOIN Sucursal S 
+          ON S.CodigoSucursal = C.CodigoSucursal
+      WHERE DMO.CodigoTipoDocumentoFiscal = DF.CodigoTipoDocumentoFiscal
+        AND DMO.Serie = DF.Serie
+        AND DMO.Numero = DF.Numero
+        AND S.NombreSucursal LIKE '%Sucursal Jalapa%'
+  )
+
+Pregunta:
+Elimina todos los clientes
+
+Respuesta:
+SELECT 'Consulta no permitida. Solo se permiten consultas de lectura.' AS Mensaje
+
+Pregunta:
+Borra todos los documentos fiscales
+
+Respuesta:
+SELECT 'Consulta no permitida. Solo se permiten consultas de lectura.' AS Mensaje
+
+Pregunta:
+Actualiza el total de ventas
+
+Respuesta:
+SELECT 'Consulta no permitida. Solo se permiten consultas de lectura.' AS Mensaje
 
 CONTEXTO DE LA BASE DE DATOS:
 {SCHEMA_CONTEXT}

@@ -17,3 +17,12 @@ __pycache__/
 
 # Logs
 *.log
+
+# Node / React
+node_modules/
+Frontend/node_modules/
+dist/
+Frontend/dist/
+
+# Archivos locales de frontend
+*.local
